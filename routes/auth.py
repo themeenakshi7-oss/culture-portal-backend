@@ -1,10 +1,4 @@
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Response,
-    Request
-)
+from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from models.user_session import UserSession
 from models.failed_login import FailedLogin
 from datetime import datetime, timedelta
@@ -14,25 +8,13 @@ from sqlalchemy.orm import Session
 from database import SessionLocal
 from models.user import User
 
-from schemas.auth_schema import (
-    RegisterSchema,
-    LoginSchema
-)
+from schemas.auth_schema import RegisterSchema, LoginSchema
 
-from utils.password import (
-    hash_password,
-    verify_password
-)
+from utils.password import hash_password, verify_password
 
-from utils.jwt_handler import (
-    create_access_token,
-    create_refresh_token
-)
+from utils.jwt_handler import create_access_token, create_refresh_token
 
-from fastapi.security import (
-    HTTPBearer,
-    HTTPAuthorizationCredentials
-)
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from jose import jwt, JWTError
 from dotenv import load_dotenv
@@ -64,25 +46,15 @@ def get_db():
 
 # REGISTER API
 @router.post("/register")
-def register(
-    user: RegisterSchema,
-    db: Session = Depends(get_db)
-):
+def register(user: RegisterSchema, db: Session = Depends(get_db)):
 
-    existing_user = db.query(User).filter(
-        User.email == user.email
-    ).first()
+    existing_user = db.query(User).filter(User.email == user.email).first()
 
     if existing_user:
 
-        raise HTTPException(
-            status_code=400,
-            detail="Email already exists"
-        )
+        raise HTTPException(status_code=400, detail="Email already exists")
 
-    hashed_password = hash_password(
-        user.password
-    )
+    hashed_password = hash_password(user.password)
 
     new_user = User(
         fullname=user.fullname,
@@ -91,16 +63,14 @@ def register(
         mobile=user.mobile,
         organization=user.organization,
         country=user.country,
-        password=hashed_password
+        password=hashed_password,
     )
 
     db.add(new_user)
 
     db.commit()
 
-    return {
-        "message": "User Registered Successfully"
-    }
+    return {"message": "User Registered Successfully"}
 
 
 # # LOGIN API OLD
@@ -143,17 +113,16 @@ def register(
 #         "fullname": db_user.fullname
 #     }
 
+
 @router.post("/login")
 def login(
     request: Request,
     response: Response,
     user: LoginSchema,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
 
-    db_user = db.query(User).filter(
-        User.email == user.email
-    ).first()
+    db_user = db.query(User).filter(User.email == user.email).first()
 
     if not db_user:
 
@@ -161,44 +130,33 @@ def login(
         failed = FailedLogin(
             email=user.email,
             ip_address=request.client.host,
-            attempt_time=datetime.utcnow()
+            attempt_time=datetime.utcnow(),
         )
 
         db.add(failed)
 
         db.commit()
 
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid Email"
-        )
+        raise HTTPException(status_code=400, detail="Invalid Email")
 
-    valid_password = verify_password(
-        user.password,
-        db_user.password
-    )
+    valid_password = verify_password(user.password, db_user.password)
 
     if not valid_password:
 
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid Password"
-        )
+        raise HTTPException(status_code=400, detail="Invalid Password")
 
-    access_token = create_access_token({
-        "email": db_user.email,
-        "id": db_user.id,
-    })
-
-    refresh_token = create_refresh_token({
-        "email": db_user.email,
-        "id": db_user.id,
-        "type": "refresh"
-    })
-
-    user_agent = request.headers.get(
-        "user-agent"
+    access_token = create_access_token(
+        {
+            "email": db_user.email,
+            "id": db_user.id,
+        }
     )
+
+    refresh_token = create_refresh_token(
+        {"email": db_user.email, "id": db_user.id, "type": "refresh"}
+    )
+
+    user_agent = request.headers.get("user-agent")
 
     parsed_agent = parse(user_agent)
 
@@ -218,7 +176,7 @@ def login(
         device=device,
         login_time=datetime.utcnow(),
         session_expiry=expiry,
-        status="active"
+        status="active",
     )
 
     db.add(session)
@@ -230,80 +188,51 @@ def login(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=False,
-        samesite="Lax",
-        max_age=7 * 24 * 60 * 60
+        secure=True,
+        samesite="None",
+        max_age=7 * 24 * 60 * 60,
     )
 
-    return {
-        "access_token": access_token,
-        "fullname": db_user.fullname
-    }
+    return {"access_token": access_token, "fullname": db_user.fullname}
 
 
 @router.post("/refresh")
-def refresh_token(
-    request: Request
-):
+def refresh_token(request: Request):
 
-    refresh_token = request.cookies.get(
-        "refresh_token"
-    )
+    refresh_token = request.cookies.get("refresh_token")
 
     if not refresh_token:
 
-        raise HTTPException(
-            status_code=401,
-            detail="Refresh token missing"
-        )
+        raise HTTPException(status_code=401, detail="Refresh token missing")
 
     try:
 
-        payload = jwt.decode(
-            refresh_token,
-            SECRET_KEY,
-            algorithms=[ALGORITHM]
-        )
+        payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
 
         if payload.get("type") != "refresh":
 
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid token type"
-            )
+            raise HTTPException(status_code=401, detail="Invalid token type")
 
-        new_access_token = create_access_token({
-            "email": payload["email"],
-            "id": payload["id"]
-        })
+        new_access_token = create_access_token(
+            {"email": payload["email"], "id": payload["id"]}
+        )
 
-        return {
-            "access_token": new_access_token
-        }
+        return {"access_token": new_access_token}
 
     except JWTError:
 
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid refresh token"
-        )
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
 
 
 @router.post("/logout")
-def logout(
-    request: Request,
-    response: Response,
-    db: Session = Depends(get_db)
-):
+def logout(request: Request, response: Response, db: Session = Depends(get_db)):
 
-    refresh_token = request.cookies.get(
-        "refresh_token"
-    )
+    refresh_token = request.cookies.get("refresh_token")
 
     # FIND SESSION
-    session = db.query(UserSession).filter(
-        UserSession.refresh_token == refresh_token
-    ).first()
+    session = (
+        db.query(UserSession).filter(UserSession.refresh_token == refresh_token).first()
+    )
 
     if session:
 
@@ -314,44 +243,31 @@ def logout(
         db.commit()
 
     # DELETE COOKIE
-    response.delete_cookie(
-        key="refresh_token"
-    )
+    response.delete_cookie(key="refresh_token")
 
-    return {
-        "message": "Logged out successfully"
-    }
+    return {"message": "Logged out successfully"}
 
 
 # GET CURRENT USER
 @router.get("/me")
 def get_me(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
 
     token = credentials.credentials
 
     try:
 
-        payload = jwt.decode(
-            token,
-            SECRET_KEY,
-            algorithms=[ALGORITHM]
-        )
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
 
         user_email = payload.get("email")
 
-        user = db.query(User).filter(
-            User.email == user_email
-        ).first()
+        user = db.query(User).filter(User.email == user_email).first()
 
         if not user:
 
-            raise HTTPException(
-                status_code=401,
-                detail="User not found"
-            )
+            raise HTTPException(status_code=401, detail="User not found")
 
         return {
             "id": user.id,
@@ -360,15 +276,12 @@ def get_me(
             "designation": user.designation,
             "mobile": user.mobile,
             "organization": user.organization,
-            "country": user.country
+            "country": user.country,
         }
 
     except JWTError:
 
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid token"
-        )
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 
 # from fastapi import (

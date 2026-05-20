@@ -21,8 +21,6 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "https://culture-portal-frontend.onrender.com",
-        "https://icpdelhistage.nvli.in/",
-        "https://indianculture.gov.in",
     ],
     allow_credentials=True,
     allow_methods=["*"],
