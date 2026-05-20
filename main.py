@@ -20,7 +20,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
+        "http://127.0.0.1:3000",
         "https://culture-portal-frontend.onrender.com",
+        "https://icpdelhistage.nvli.in"
     ],
     allow_credentials=True,
     allow_methods=["*"],
