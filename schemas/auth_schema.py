@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr
 
+
 class RegisterSchema(BaseModel):
 
     fullname: str
